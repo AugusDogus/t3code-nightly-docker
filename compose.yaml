@@ -1,0 +1,43 @@
+services:
+  t3code:
+    image: ghcr.io/augusdogus/t3code-nightly:${T3CODE_IMAGE_TAG:-nightly}
+    container_name: t3code
+    restart: unless-stopped
+    stop_grace_period: 30s
+    user: "${T3CODE_UID:-99}:${T3CODE_GID:-100}"
+    ports:
+      - "127.0.0.1:${T3CODE_HOST_PORT:-3773}:3773"
+    environment:
+      HOME: /data/home
+      T3CODE_HOME: /data/t3
+      CODEX_HOME: /data/codex
+      XDG_CONFIG_HOME: /data/home/.config
+      XDG_DATA_HOME: /data/home/.local/share
+      XDG_CACHE_HOME: /data/home/.cache
+      T3_SERVER_HOST: 0.0.0.0
+      T3_SERVER_PORT: 3773
+      T3_WORKDIR: /workspace
+      T3_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "1"
+      T3_AUTO_UPDATE: "0"
+      T3_UPDATE_T3: "0"
+      T3_UPDATE_CODEX: "0"
+      T3_UPDATE_CLAUDE: "0"
+      T3_UPDATE_CURSOR: "0"
+      T3_UPDATE_GROK: "0"
+      T3_UPDATE_OPENCODE: "0"
+      T3_AUTH_PROXY: "0"
+      T3_AUTH_WEB_HELPER: "0"
+      T3_PROVIDER_CODEX: "1"
+      T3_PROVIDER_CLAUDE: "1"
+      T3_PROVIDER_OPENCODE: "1"
+      T3_PROVIDER_CURSOR: "0"
+      T3_PROVIDER_GROK: "0"
+      T3_OPENCODE_CLOUDFLARE_MCP: "0"
+      T3_OPENCODE_MCP_PRESETS: ""
+    volumes:
+      - type: bind
+        source: ${T3CODE_DATA_PATH:-/mnt/user/appdata/t3code}
+        target: /data
+      - type: bind
+        source: ${T3CODE_WORKSPACE_PATH:-/mnt/user/dev}
+        target: /workspace

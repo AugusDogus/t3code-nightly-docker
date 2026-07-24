@@ -1,0 +1,9 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+README.md
+LICENSE
+THIRD_PARTY_NOTICES.md
+compose.yaml
