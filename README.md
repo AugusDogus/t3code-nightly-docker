@@ -52,6 +52,26 @@ named `t3code`, with `/mnt/cache/appdata/t3code` mounted at `/data` and
 `/mnt/cache/dev` mounted at `/workspace`. It uses T3 Connect for remote access.
 It is not managed by Compose or an Unraid Docker template.
 
+The Unraid deployment uses a separate `cliproxyapi` container on the private
+`t3-backend` Docker network. T3 has two enabled profiles, Codex and Claude,
+pointing to `http://cliproxyapi:8317`. Codex uses the `/v1` Responses API;
+Claude uses the Anthropic API. Account pooling and authentication belong to
+CLIProxyAPI, and T3 reads pooled quotas through its CLIProxyAPI usage source.
+The proxy has no published host ports and runs independently of the desktop
+and MacBook installations.
+
+Proxy configuration and account credentials persist in
+`/mnt/cache/appdata/cliproxyapi`. Its client and management keys are separate;
+T3 stores its management key and Claude token in its native secret store.
+The proxy runs the official `eceasy/cli-proxy-api:v8.0.16` image, pinned by digest
+in the deployed container. It is updated separately from T3 and the provider CLIs.
+
+The previous Unraid settings, profiles, and conversations were archived under
+`/mnt/cache/appdata/t3code-backups/20261006T181212Z-cliproxy-reset/data` before
+starting fresh. T3 Connect identity and existing client authorizations were
+retained. `/mnt/cache/dev` was not reset. Automatic project creation from
+`/workspace` is disabled on this deployment.
+
 The following Compose instructions are for a new installation. Do not start a
 second container against the existing data directory. When replacing the current
 container, preserve its mounts, environment overrides, UID/GID, and port mapping.
