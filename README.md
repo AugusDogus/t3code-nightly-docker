@@ -191,8 +191,9 @@ home directory configured for that profile in T3, such as `/data/claude-work`.
 
 The workflow tests pull requests and publishes container changes merged to
 `main`. It also supports manual runs; only `main` publishes images. There is no
-scheduled nightly rebuild. Each build resolves npm's `t3` nightly dist-tag as
-the initial version, unless a manual run specifies an exact version.
+scheduled nightly rebuild. Each build uses the tested `T3_VERSION` in `Dockerfile`
+as the initial version, unless a manual run specifies another exact version.
+This avoids depending on partially published nightlies for container changes.
 If the exact image tag does not exist, it:
 
 1. Builds the image for amd64.
@@ -226,7 +227,7 @@ both containers against the same `/data` directory.
 ## Local Build
 
 ```bash
-T3_VERSION="$(npm view t3 dist-tags.nightly)"
+T3_VERSION="$(sed -n 's/^ARG T3_VERSION=//p' Dockerfile)"
 docker build --build-arg "T3_VERSION=$T3_VERSION" -t "t3code-nightly:$T3_VERSION" .
 scripts/smoke.sh "t3code-nightly:$T3_VERSION" "$T3_VERSION"
 ```

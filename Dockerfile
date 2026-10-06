@@ -38,7 +38,7 @@ RUN ln -s /usr/local/bin/bun /usr/local/bin/bunx \
     && npm cache clean --force
 
 # Require the platform package directly: npm must fail if it is not published yet.
-ARG T3_VERSION
+ARG T3_VERSION=0.0.46-nightly.20261005.2702
 RUN test -n "${T3_VERSION}" \
     && NPM_CONFIG_CACHE=/tmp/t3-npm-cache npm install -g \
       --prefix /opt/t3-install \

@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       t3_version:
-        description: Exact T3 npm version. Empty uses the nightly dist-tag.
+        description: Exact T3 npm version. Empty uses the tested version in Dockerfile.
         required: false
         type: string
   pull_request:
@@ -50,7 +50,7 @@ jobs:
 
           version="$REQUESTED_VERSION"
           if [[ -z "$version" ]]; then
-            version="$(npm view t3 dist-tags.nightly)"
+            version="$(sed -n 's/^ARG T3_VERSION=//p' Dockerfile)"
           fi
 
           if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]{8}\.[0-9]+$ ]]; then
