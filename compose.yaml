@@ -19,6 +19,7 @@ services:
       T3_WORKDIR: /workspace
       T3_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "1"
       T3_AUTO_UPDATE: "0"
+      T3_ENABLE_PROVIDER_UPDATE_CHECKS: "1"
       T3_UPDATE_T3: "0"
       T3_UPDATE_CODEX: "0"
       T3_UPDATE_CLAUDE: "0"

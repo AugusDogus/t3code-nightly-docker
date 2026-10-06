@@ -1,15 +1,16 @@
 # T3 Code Nightly Docker
 
-An amd64 image that layers each exact T3 Code nightly onto the maintained
+An amd64 image that seeds T3 Code and its providers onto the maintained
 [`traktuner/docker-t3-code`](https://github.com/traktuner/docker-t3-code) runtime.
 The upstream image already handles provider installation and configuration,
 authentication homes, Git safe directories, health checks, signal handling,
 optional sandbox integration, and container-specific lifecycle behavior.
 
-This repository deliberately adds only two things:
+This repository adds:
 
-- an exact T3 nightly package
-- automation that publishes immutable nightly image tags after smoke tests
+- a tested initial T3 nightly and provider installation
+- persistent installations that can be updated from T3's own UI
+- the native T3 service launcher for update, restart, and reconnect
 
 ## Included Software
 
@@ -30,8 +31,10 @@ ghcr.io/augusdogus/t3code-nightly:<exact T3 nightly version>
 ghcr.io/augusdogus/t3code-nightly:nightly
 ```
 
-Use an exact version for deliberate upgrades and rollback. Use `nightly` only
-after automating state backups and accepting unattended database migrations.
+The image tag selects the initial T3 version for a fresh `/data` directory.
+After initialization, T3's UI controls the active version. Restarting or replacing
+the container preserves that selection and your provider installations. Pulling
+an older image does not downgrade an existing installation.
 
 The upstream base is pinned by digest in `Dockerfile`. Dependabot proposes base
 updates for review instead of silently changing the runtime beneath an existing
@@ -54,9 +57,40 @@ docker compose up -d
 ```
 
 The Compose file enables Claude, Codex, and OpenCode. Cursor and Grok remain
-installed but disabled by default. Provider runtime updates and the upstream
-custom auth proxy are disabled so the image remains immutable and T3's native
-pairing remains authoritative.
+installed but disabled by default. Startup package updates and the upstream
+custom auth proxy are disabled. T3's native pairing and update controls remain
+authoritative.
+
+## Updates from T3
+
+Connect the nightly desktop app or a compatible mobile app to this server. When
+the connected client offers **Update server**, click it and keep the client
+open while the download completes, the server restarts, and the connection returns.
+The server follows the nightly release channel. Update notices and checks are
+provided by T3's client; the container does not install updates unattended. The
+container's bundled browser UI does not provide the desktop's nightly banner.
+
+In **Settings → Providers**, enable update checks and use **Update all** or an
+individual provider's update action. Codex, Claude, and OpenCode are installed in
+the writable `/data/providers` prefix, so updates survive container replacement.
+The initial versions are pinned by build arguments in `Dockerfile`.
+
+Server updates can interrupt running agents and terminals. T3's optional
+**Continue threads after restarts** setting controls supported thread recovery.
+Back up `/data` before significant upgrades. The native launcher snapshots SQLite
+for failed-update recovery; this does not replace a backup of the full data volume.
+
+This container adapts the upstream internal service launcher, protocol 3, without
+systemd or a Docker socket. The launcher stays in the image while updated server
+versions are installed beneath `/data/t3/runtime`. If a future release requires a
+new launcher protocol, update the container image first. Do not run
+`t3 service install` inside the container or use startup `npm update` jobs.
+
+To migrate from the earlier immutable image: stop the container, back up `/data`,
+then recreate it with this image and the same writable mounts. On first start it
+seeds the managed runtime and providers while retaining T3 state and provider
+authentication. Existing package copies in `/data/npm-global` are left intact but
+are no longer used for T3, Codex, Claude, or OpenCode.
 
 ## Tailscale
 
@@ -81,7 +115,7 @@ interfaces.
 
 | Container path | Contents |
 | --- | --- |
-| `/data` | T3 state, worktrees, provider authentication, SSH and Git configuration, and caches |
+| `/data` | T3 state and installed runtimes, provider installations and authentication, worktrees, SSH and Git configuration, and caches |
 | `/workspace` | Project repositories and project dependencies |
 
 Back up `/mnt/user/appdata/t3code` before every nightly upgrade. Back up or push
@@ -104,23 +138,25 @@ docker exec -it t3code t3-doctor
 The workflow checks npm's `t3` nightly dist-tag every six hours. If the exact
 GHCR tag does not exist, it:
 
-1. Builds the thin derived image for amd64.
-2. Verifies the exact T3 version and every bundled provider CLI.
-3. Starts the server and probes its environment endpoint.
+1. Builds the derived image for amd64.
+2. Tests bootstrap state preservation and validates provider update destinations.
+3. Starts an older nightly as UID 99, updates it through T3's native API, verifies
+   authenticated reconnection, then recreates the container with the same data
+   and verifies database/runtime recovery after a deliberately failed update.
 4. Publishes the exact version and moving `nightly` tags with provenance and an
    SBOM.
 
-For a deliberate Unraid upgrade:
+For an Unraid container image refresh:
 
 1. Finish active agent and terminal work.
 2. Stop the container.
 3. Back up the `/data` host path.
-4. Change `T3CODE_IMAGE_TAG` to the new exact nightly.
+4. Change `T3CODE_IMAGE_TAG` to the desired image.
 5. Pull and recreate the container.
 6. Verify projects, threads, and provider authentication.
 
-Rollback may require restoring both the previous exact image tag and the state
-backup if the newer nightly applied a database migration.
+The selected T3 runtime and provider versions remain in `/data`. To roll back an
+already committed update, restore the matching data backup and compatible image.
 
 ## Local Build
 
@@ -129,6 +165,16 @@ T3_VERSION="$(npm view t3 dist-tags.nightly)"
 docker build --build-arg "T3_VERSION=$T3_VERSION" -t "t3code-nightly:$T3_VERSION" .
 scripts/smoke.sh "t3code-nightly:$T3_VERSION" "$T3_VERSION"
 ```
+
+To also exercise a real native update from an older release:
+
+```bash
+UPDATE_FROM_VERSION=0.0.46-nightly.20261005.2676 \
+  scripts/smoke.sh "t3code-nightly:$T3_VERSION" "$T3_VERSION"
+```
+
+Set `CONTAINER_ENGINE=podman` when testing with Podman. Smoke tests use disposable
+volumes and do not access your live `/data` or provider credentials.
 
 ## Security Boundary
 

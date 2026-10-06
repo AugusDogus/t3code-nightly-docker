@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${T3_CONTAINER_STARTUP:-0}" == 1 && "${1:-}" == serve ]]; then
+  unset T3_CONTAINER_STARTUP
+  shift
+  exec python3 /opt/t3-container/runtime.py launch "$@"
+fi
+
+runtime="$(python3 /opt/t3-container/runtime.py resolve)"
+exec "$runtime" "$@"
