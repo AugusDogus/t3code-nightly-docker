@@ -14,6 +14,8 @@ import shutil
 import sys
 import tempfile
 
+import settings
+
 
 VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?")
 
@@ -77,6 +79,7 @@ def initialize(base: Path, seed: Path, provider_seed: Path, providers: Path, ver
         active_runtime(base, seed)
         if not providers.exists():
             seed_directory(provider_seed, providers)
+        settings.initialize(base)
 
 
 def main() -> None:

@@ -40,6 +40,27 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(self.state.read_bytes(), original)
         self.assertEqual((self.providers / "version").read_text(), "user update")
 
+    def test_fresh_settings_use_persistent_provider_homes(self):
+        self.initialize()
+        settings = json.loads((self.base / "userdata/settings.json").read_text())
+        profiles = settings["providerInstances"]
+        self.assertEqual(profiles["codex"]["config"]["homePath"], "/data/codex")
+        self.assertEqual(profiles["claudeAgent"]["config"]["homePath"], "/data/claude-home")
+        for driver, binary in [("codex", "codex"), ("claudeAgent", "claude"), ("opencode", "opencode")]:
+            self.assertTrue(profiles[driver]["enabled"])
+            self.assertEqual(profiles[driver]["config"]["binaryPath"], f"/data/providers/bin/{binary}")
+
+    def test_existing_personal_and_work_profiles_are_not_rewritten(self):
+        path = self.base / "userdata/settings.json"
+        path.parent.mkdir(parents=True)
+        original = json.dumps({"providerInstances": {
+            "personal": {"driver": "claudeAgent", "config": {"homePath": "/data/claude-home"}},
+            "work": {"driver": "claudeAgent", "config": {"homePath": "/data/claude-work"}},
+        }, "enableProviderUpdateChecks": False}) + "\n"
+        path.write_text(original)
+        self.initialize()
+        self.assertEqual(path.read_text(), original)
+
     def test_pending_update_is_left_for_upstream_rollback_recovery(self):
         self.initialize()
         state = json.loads(self.state.read_text())

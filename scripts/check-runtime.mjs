@@ -1,7 +1,7 @@
-// Runs inside an isolated smoke-test container. Credentials stay in memory.
+// Runs inside an isolated smoke-test container. Credentials stay in its disposable volume.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
 
 const [expectedVersion, updateFrom] = process.argv.slice(2);
@@ -20,10 +20,20 @@ async function environment() {
 const before = await environment();
 assert.equal(before.serverVersion, updateFrom || expectedVersion);
 assert.equal(before.capabilities.serverSelfUpdate, "boot-service");
-const token = execFileSync("t3", ["auth", "session", "issue", "--token-only", "--ttl", "10m"], {
-  encoding: "utf8",
-  stdio: ["ignore", "pipe", "pipe"],
-}).trim();
+// This file exists only in the disposable test volume. Reusing its credential
+// verifies authentication and environment identity across container replacement.
+const sessionPath = "/data/.smoke-session.json";
+const session = existsSync(sessionPath)
+  ? JSON.parse(readFileSync(sessionPath, "utf8"))
+  : {
+    environmentId: before.environmentId,
+    token: execFileSync("t3", ["auth", "session", "issue", "--token-only", "--ttl", "10m"], {
+      encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
+    }).trim(),
+  };
+assert.equal(before.environmentId, session.environmentId, "Environment identity changed");
+writeFileSync(sessionPath, JSON.stringify(session), { mode: 0o600 });
+const token = session.token;
 
 async function rpc(method, payload) {
   const ticketResponse = await fetch(`${origin}/api/auth/websocket-ticket`, {

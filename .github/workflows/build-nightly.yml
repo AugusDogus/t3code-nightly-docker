@@ -114,6 +114,13 @@ jobs:
           UPDATE_FROM_VERSION: 0.0.46-nightly.20261005.2676
         run: scripts/smoke.sh "${{ steps.resolve.outputs.test_image }}" "${{ steps.resolve.outputs.version }}"
 
+      - name: Verify migration from the previous base image
+        if: steps.existing.outputs.build == 'true'
+        env:
+          MIGRATE_FROM_IMAGE: ghcr.io/augusdogus/t3code-nightly:0.0.46-nightly.20261005.2702-e9a0c75d05fe9465128b791b9ab2cfda3859c243
+          UPDATE_FROM_VERSION: 0.0.46-nightly.20261005.2702
+        run: scripts/smoke.sh "${{ steps.resolve.outputs.test_image }}" "${{ steps.resolve.outputs.version }}"
+
       - name: Publish exact and moving tags
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.existing.outputs.build == 'true'
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0

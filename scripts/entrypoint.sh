@@ -1,17 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if (( $# > 0 )); then
+  exec "$@"
+fi
+
+mkdir -p "$HOME" "$CODEX_HOME" "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" \
+  "$XDG_CACHE_HOME" "$NPM_CONFIG_CACHE" "$T3_WORKDIR" /data/claude-home
 python3 /opt/t3-container/runtime.py initialize
 
-# Keep the upstream configuration, authentication, and provider setup. Its final
-# `t3 serve` is intercepted by our shim to start the native update supervisor.
-export T3_CONTAINER_STARTUP=1
-export T3_AUTO_UPDATE=0 T3_UPDATE_T3=0
-export NPM_CONFIG_PREFIX=/data/providers npm_config_prefix=/data/providers
-export PATH="/data/providers/bin:/usr/local/bin:$PATH"
+# Trust repositories explicitly mounted as the coding workspace, not all paths.
+while IFS= read -r -d '' marker; do
+  repository="$(dirname -- "$marker")"
+  if ! git config --global --get-all safe.directory | grep -Fx -- "$repository" >/dev/null; then
+    git config --global --add safe.directory "$repository"
+  fi
+done < <(find "$T3_WORKDIR" -xdev -maxdepth 8 -name .git -print0 -prune)
 
-# Project creation must happen inside the managed server, after the launcher's
-# database snapshot, rather than before a pending update/rollback is recovered.
-export T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD="${T3_AUTO_BOOTSTRAP_PROJECT_FROM_CWD:-1}"
-export T3_AUTO_BOOTSTRAP_PROJECT_FROM_CWD=0
-exec /opt/t3-docker/entrypoint.sh
+# Retain the old image's host/port/bootstrap variable names for existing installs.
+export T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD="${T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD:-${T3_AUTO_BOOTSTRAP_PROJECT_FROM_CWD:-1}}"
+exec python3 /opt/t3-container/runtime.py launch \
+  --host "${T3_SERVER_HOST:-${T3CODE_HOST:-0.0.0.0}}" \
+  --port "${T3_SERVER_PORT:-${T3CODE_PORT:-3773}}" "$T3_WORKDIR"

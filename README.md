@@ -1,10 +1,8 @@
 # T3 Code Nightly Docker
 
-An amd64 image that seeds T3 Code nightly and its providers onto the maintained
-[`traktuner/docker-t3-code`](https://github.com/traktuner/docker-t3-code) runtime.
-The upstream image already handles provider installation and configuration,
-authentication homes, Git safe directories, health checks, signal handling,
-optional sandbox integration, and container-specific lifecycle behavior.
+An amd64 image built on the official Node.js image with Debian 12. It installs
+upstream's prebuilt T3 Code nightly and provider CLIs, with persistent data and
+updates controlled through T3's app. It does not depend on another T3 Docker image.
 
 This repository adds:
 
@@ -18,15 +16,16 @@ Codex, Claude, and OpenCode use their own versions and update controls.
 
 ## Included Software
 
-The upstream Debian 12 (Bookworm) image includes:
+The image includes:
 
-- Claude Code, Codex CLI, OpenCode, Cursor Agent, and Grok
+- Claude Code, Codex CLI, and OpenCode
 - Node.js, npm, pnpm, Yarn, Bun, Python, and uv
-- Git, Git LFS, GitHub CLI, OpenSSH, ripgrep, fd, jq, SQLite, database clients,
-  and native build tools
+- Git, Git LFS, GitHub CLI, OpenSSH, ripgrep, fd, jq, SQLite, rsync, and native
+  build tools (GCC, Make, CMake, and pkg-config)
 
-See the [upstream documentation](https://github.com/traktuner/docker-t3-code)
-for its full provider, MCP, sandbox, Xcode, and issue-worker capabilities.
+Node.js, Bun, and uv come from versioned, digest-pinned official images. GitHub
+CLI comes from its official apt repository; system packages come from Debian.
+The container runs as UID 99, GID 100, and uses `dumb-init` for signal handling.
 
 ## Tags
 
@@ -43,9 +42,8 @@ After initialization, T3's UI controls the active version. Restarting or replaci
 the container preserves that selection and your provider installations. Pulling
 an older image does not downgrade an existing installation.
 
-The upstream base is pinned by digest in `Dockerfile`. Dependabot proposes base
-updates for review instead of silently changing the runtime beneath an existing
-nightly image.
+The base and tool images are pinned by digest in `Dockerfile`. Dependabot proposes
+updates for review instead of silently changing the container runtime.
 
 ## Unraid Setup
 
@@ -72,10 +70,10 @@ Copy `.env.example` to `.env`, optionally select an exact image tag, and start t
 docker compose up -d
 ```
 
-The Compose file enables Claude, Codex, and OpenCode. Cursor and Grok remain
-installed but disabled by default. Startup package updates and the upstream
-custom auth proxy are disabled. T3's native pairing and update controls remain
-authoritative.
+Fresh installations enable Claude, Codex, and OpenCode with persistent binary and
+authentication paths. Manage providers and additional profiles in T3's settings.
+Startup preserves existing settings, profiles, and credentials, and never
+updates installed packages. T3 handles pairing and update controls directly.
 
 ## Updates from T3
 
@@ -112,6 +110,14 @@ then recreate it with this image and the same writable mounts. On first start it
 seeds the managed runtime and providers while retaining T3 state and provider
 authentication. Existing package copies in `/data/npm-global` are left intact but
 are no longer used for T3, Codex, Claude, or OpenCode.
+
+When moving from this repository's earlier third-party base, keep the same
+`/data` and `/workspace` mounts. Personal and work profiles, selected runtime,
+provider installations, and T3 Connect authorization are preserved. The old
+`/config/t3code.toml`, provider provisioning environment variables, `t3-auth`,
+`t3-doctor`, and bundled proxy/MCP/sandbox helpers are no longer provided.
+Cursor and Grok are not bundled. The existing host, port, and project-bootstrap
+environment variable names remain accepted for container replacement.
 
 When upgrading a V1 installation, T3 copies `userdata/state.sqlite` to
 `userdata/statev2.sqlite` and migrates the copy. Existing threads and conversation
@@ -171,12 +177,15 @@ separately.
 Credentials are written beneath `/data` and survive image replacement.
 
 ```bash
-docker exec -it t3code t3-auth codex login
-docker exec -it t3code t3-auth claude login
-docker exec -it t3code t3-auth gh login
-docker exec -it t3code t3-auth gh setup-git
-docker exec -it t3code t3-doctor
+docker exec -it t3code codex login --device-auth
+docker exec -it -e HOME=/data/claude-home t3code claude auth login
+docker exec -it t3code opencode auth login
+docker exec -it t3code gh auth login
+docker exec -it t3code gh auth setup-git
 ```
+
+These commands use the default profile paths. For an additional profile, use the
+home directory configured for that profile in T3, such as `/data/claude-work`.
 
 ## Automated Builds
 
@@ -186,15 +195,17 @@ scheduled nightly rebuild. Each build resolves npm's `t3` nightly dist-tag as
 the initial version, unless a manual run specifies an exact version.
 If the exact image tag does not exist, it:
 
-1. Builds the derived image for amd64.
+1. Builds the image for amd64.
 2. Tests bootstrap state preservation and validates provider update destinations.
 3. Starts an older nightly as UID 99, updates it through T3's native API, verifies
    authenticated reconnection, then recreates the container with the same data
    and verifies database/runtime recovery after a deliberately failed update.
-4. Publishes the version-plus-commit and moving `nightly` tags with provenance and an
+4. Replaces the previous base image and verifies that personal/work profiles,
+   provider homes, environment identity, and an existing credential survive.
+5. Publishes the version-plus-commit and moving `nightly` tags with provenance and an
    SBOM.
 
-Dependabot checks the pinned base image weekly. Merging a base-image update
+Dependabot checks the pinned base and tool images weekly. Merging an image update
 builds a new container with its OS and bundled tool updates. T3 and provider
 updates within an existing installation remain controlled through the app.
 
@@ -229,6 +240,8 @@ UPDATE_FROM_VERSION=0.0.46-nightly.20261005.2676 \
 
 Set `CONTAINER_ENGINE=podman` when testing with Podman. Smoke tests use disposable
 volumes and do not access your live `/data` or provider credentials.
+Set `MIGRATE_FROM_IMAGE` to the previous image and `UPDATE_FROM_VERSION` to its
+initial T3 version to also test replacement of that image.
 
 ## Security Boundary
 
