@@ -1,8 +1,13 @@
-name: Build T3 Code nightly
+name: Build T3 Code container
 
 on:
-  schedule:
-    - cron: "17 */6 * * *"
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - scripts/**
+      - compose.yaml
+      - .github/workflows/build-nightly.yml
   workflow_dispatch:
     inputs:
       t3_version:
@@ -54,15 +59,18 @@ jobs:
           fi
 
           image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/t3code-nightly"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "image=$image" >> "$GITHUB_OUTPUT"
-          echo "test_image=local/t3code-nightly:$version" >> "$GITHUB_OUTPUT"
+          {
+            echo "version=$version"
+            echo "tag=$version-$GITHUB_SHA"
+            echo "image=$image"
+            echo "test_image=local/t3code-nightly:$version"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: Log in to GHCR
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
         with:
           registry: ghcr.io
@@ -74,15 +82,15 @@ jobs:
         shell: bash
         env:
           IMAGE: ${{ steps.resolve.outputs.image }}
-          VERSION: ${{ steps.resolve.outputs.version }}
+          TAG: ${{ steps.resolve.outputs.tag }}
         run: |
           set -euo pipefail
 
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "build=true" >> "$GITHUB_OUTPUT"
-          elif docker buildx imagetools inspect "$IMAGE:$VERSION" >/dev/null 2>&1; then
+          elif docker buildx imagetools inspect "$IMAGE:$TAG" >/dev/null 2>&1; then
             echo "build=false" >> "$GITHUB_OUTPUT"
-            echo "Image $IMAGE:$VERSION already exists."
+            echo "Image $IMAGE:$TAG already exists."
           else
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
@@ -107,14 +115,14 @@ jobs:
         run: scripts/smoke.sh "${{ steps.resolve.outputs.test_image }}" "${{ steps.resolve.outputs.version }}"
 
       - name: Publish exact and moving tags
-        if: github.event_name != 'pull_request' && steps.existing.outputs.build == 'true'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.existing.outputs.build == 'true'
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: .
           push: true
           platforms: linux/amd64
           tags: |
-            ${{ steps.resolve.outputs.image }}:${{ steps.resolve.outputs.version }}
+            ${{ steps.resolve.outputs.image }}:${{ steps.resolve.outputs.tag }}
             ${{ steps.resolve.outputs.image }}:nightly
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
@@ -134,6 +142,6 @@ jobs:
             echo "## T3 Code nightly image"
             echo
             echo "- Version: \`${{ steps.resolve.outputs.version }}\`"
-            echo "- Image: \`${{ steps.resolve.outputs.image }}\`"
+            echo "- Image: \`${{ steps.resolve.outputs.image }}:${{ steps.resolve.outputs.tag }}\`"
             echo "- Build requested: \`${{ steps.existing.outputs.build || 'unknown' }}\`"
           } >> "$GITHUB_STEP_SUMMARY"

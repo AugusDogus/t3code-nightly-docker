@@ -27,11 +27,14 @@ for its full provider, MCP, sandbox, Xcode, and issue-worker capabilities.
 ## Tags
 
 ```text
-ghcr.io/augusdogus/t3code-nightly:<exact T3 nightly version>
+ghcr.io/augusdogus/t3code-nightly:<T3-version>-<repository-commit>
 ghcr.io/augusdogus/t3code-nightly:nightly
 ```
 
-The image tag selects the initial T3 version for a fresh `/data` directory.
+Exact image tags include the full repository commit so container fixes can ship
+independently of T3 releases. Copy an exact tag from the Actions build summary,
+or use `nightly` for the latest tested container build.
+The image selects the initial T3 version for a fresh `/data` directory.
 After initialization, T3's UI controls the active version. Restarting or replacing
 the container preserves that selection and your provider installations. Pulling
 an older image does not downgrade an existing installation.
@@ -50,7 +53,7 @@ Create SSD-backed cache or exclusive shares:
 ```
 
 Make both paths writable by Unraid's `nobody:users` identity, UID 99 and GID 100.
-Copy `.env.example` to `.env`, select an exact image tag, and start the stack:
+Copy `.env.example` to `.env`, optionally select an exact image tag, and start the stack:
 
 ```bash
 docker compose up -d
@@ -135,16 +138,23 @@ docker exec -it t3code t3-doctor
 
 ## Automated Builds
 
-The workflow checks npm's `t3` nightly dist-tag every six hours. If the exact
-GHCR tag does not exist, it:
+The workflow tests pull requests and publishes container changes merged to
+`main`. It also supports manual runs; only `main` publishes images. There is no
+scheduled nightly rebuild. Each build resolves npm's `t3` nightly dist-tag as
+the initial version, unless a manual run specifies an exact version.
+If the exact image tag does not exist, it:
 
 1. Builds the derived image for amd64.
 2. Tests bootstrap state preservation and validates provider update destinations.
 3. Starts an older nightly as UID 99, updates it through T3's native API, verifies
    authenticated reconnection, then recreates the container with the same data
    and verifies database/runtime recovery after a deliberately failed update.
-4. Publishes the exact version and moving `nightly` tags with provenance and an
+4. Publishes the version-plus-commit and moving `nightly` tags with provenance and an
    SBOM.
+
+Dependabot checks the pinned base image weekly. Merging a base-image update
+builds a new container with its OS and bundled tool updates. T3 and provider
+updates within an existing installation remain controlled through the app.
 
 For an Unraid container image refresh:
 
