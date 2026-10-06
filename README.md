@@ -53,12 +53,21 @@ named `t3code`, with `/mnt/cache/appdata/t3code` mounted at `/data` and
 It is not managed by Compose or an Unraid Docker template.
 
 The Unraid deployment uses a separate `cliproxyapi` container on the private
-`t3-backend` Docker network. T3 has two enabled profiles, Codex and Claude,
+`t3-backend` Docker network. T3 has two configured profiles, Codex and Claude,
 pointing to `http://cliproxyapi:8317`. Codex uses the `/v1` Responses API;
 Claude uses the Anthropic API. Account pooling and authentication belong to
 CLIProxyAPI, and T3 reads pooled quotas through its CLIProxyAPI usage source.
 The proxy has no published host ports and runs independently of the desktop
 and MacBook installations.
+
+Each independent proxy must obtain its own OAuth sessions through fresh logins.
+Never copy provider access or refresh tokens from another running proxy: a refresh
+on one machine can invalidate the other machine's credentials. Alternatively,
+multiple T3 installations can use one shared proxy, which alone owns those tokens.
+
+The Unraid proxy is currently stopped with automatic restart disabled. Its copied
+account credentials have been removed, and T3's provider profiles and quota source
+are disabled pending independent authorization.
 
 Proxy configuration and account credentials persist in
 `/mnt/cache/appdata/cliproxyapi`. Its client and management keys are separate;
