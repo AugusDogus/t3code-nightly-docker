@@ -14,7 +14,7 @@ This repository adds:
 
 ## Included Software
 
-The upstream Debian Bookworm image includes:
+The upstream Debian 12 (Bookworm) image includes:
 
 - Claude Code, Codex CLI, OpenCode, Cursor Agent, and Grok
 - Node.js, npm, pnpm, Yarn, Bun, Python, and uv
@@ -44,6 +44,15 @@ updates for review instead of silently changing the runtime beneath an existing
 nightly image.
 
 ## Unraid Setup
+
+The current Unraid installation runs as a directly managed Docker container
+named `t3code`, with `/mnt/cache/appdata/t3code` mounted at `/data` and
+`/mnt/cache/dev` mounted at `/workspace`. It uses T3 Connect for remote access.
+It is not managed by Compose or an Unraid Docker template.
+
+The following Compose instructions are for a new installation. Do not start a
+second container against the existing data directory. When replacing the current
+container, preserve its mounts, environment overrides, UID/GID, and port mapping.
 
 Create SSD-backed cache or exclusive shares:
 
@@ -89,13 +98,39 @@ versions are installed beneath `/data/t3/runtime`. If a future release requires 
 new launcher protocol, update the container image first. Do not run
 `t3 service install` inside the container or use startup `npm update` jobs.
 
+The launcher replaces the T3 server process inside the running container. It does
+not pull or replace Docker images. Debian packages, bundled development tools,
+the launcher, and container startup scripts are updated by pulling a new image
+and recreating the container through Docker or Unraid.
+
 To migrate from the earlier immutable image: stop the container, back up `/data`,
 then recreate it with this image and the same writable mounts. On first start it
 seeds the managed runtime and providers while retaining T3 state and provider
 authentication. Existing package copies in `/data/npm-global` are left intact but
 are no longer used for T3, Codex, Claude, or OpenCode.
 
-## Tailscale
+When upgrading a V1 installation, T3 copies `userdata/state.sqlite` to
+`userdata/statev2.sqlite` and migrates the copy. Existing threads and conversation
+messages are imported; the original database remains available for recovery.
+Live provider sessions and some older activity/checkpoint history are not
+carried over. See the [upstream migration notes](https://github.com/pingdotgg/t3code/blob/main/docs/user/thread-migration.md).
+
+## Remote Access
+
+### T3 Connect
+
+The current installation uses T3 Connect. Its authorization persists under
+`/data`, and T3 starts its tunnel when the server starts. Check its status with:
+
+```bash
+docker exec t3code t3 connect status
+```
+
+For a new installation, run `docker exec -it t3code t3 connect --headless` and
+follow the authorization prompts. Connect from the desktop or mobile app using
+T3 Connect. No Tailscale Serve route is required for this method.
+
+### Tailscale (alternative)
 
 The container maps T3 only to host loopback. With the native Unraid Tailscale
 plugin, publish it privately over the existing Tailnet:
@@ -121,8 +156,11 @@ interfaces.
 | `/data` | T3 state and installed runtimes, provider installations and authentication, worktrees, SSH and Git configuration, and caches |
 | `/workspace` | Project repositories and project dependencies |
 
-Back up `/mnt/user/appdata/t3code` before every nightly upgrade. Back up or push
-important repository work separately.
+Stop the container and back up the actual host directory mounted at `/data`
+before significant upgrades. On the current installation this is
+`/mnt/cache/appdata/t3code`; recovery copies are kept separately under
+`/mnt/cache/appdata/t3code-backups`. Back up or push important repository work
+separately.
 
 ## Provider Authentication
 
@@ -161,12 +199,14 @@ For an Unraid container image refresh:
 1. Finish active agent and terminal work.
 2. Stop the container.
 3. Back up the `/data` host path.
-4. Change `T3CODE_IMAGE_TAG` to the desired image.
-5. Pull and recreate the container.
+4. Select the desired exact image tag. For Compose, set `T3CODE_IMAGE_TAG`.
+5. Pull and recreate the container using its existing mounts and settings.
 6. Verify projects, threads, and provider authentication.
 
 The selected T3 runtime and provider versions remain in `/data`. To roll back an
 already committed update, restore the matching data backup and compatible image.
+Keep the stopped previous container until the replacement is verified. Never run
+both containers against the same `/data` directory.
 
 ## Local Build
 
