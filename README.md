@@ -1,6 +1,6 @@
 # T3 Code Nightly Docker
 
-An amd64 image that seeds T3 Code and its providers onto the maintained
+An amd64 image that seeds T3 Code nightly and its providers onto the maintained
 [`traktuner/docker-t3-code`](https://github.com/traktuner/docker-t3-code) runtime.
 The upstream image already handles provider installation and configuration,
 authentication homes, Git safe directories, health checks, signal handling,
@@ -11,6 +11,10 @@ This repository adds:
 - a tested initial T3 nightly and provider installation
 - persistent installations that can be updated from T3's own UI
 - the native T3 service launcher for update, restart, and reconnect
+
+Published images use T3's nightly channel. The release workflow accepts only
+nightly T3 versions; stable releases are not currently built or tested here.
+Codex, Claude, and OpenCode use their own versions and update controls.
 
 ## Included Software
 
