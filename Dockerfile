@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1.7
 
 # Dependabot proposes updates to the official runtime and tool images.
-ARG BASE_IMAGE=node:26.5.0-bookworm-slim@sha256:2d49d876e96237d76de412761cf05dbfe5aee325cc4406a4d41d5824c5bb8beb
-FROM oven/bun:1.3.14-slim@sha256:621f249399228db47cf34611ee662585e77e015250ed29d5d0932b2d3282f0b0 AS bun
-FROM ghcr.io/astral-sh/uv:0.11.28@sha256:0f36cb9361a3346885ca3677e3767016687b5a170c1a6b88465ec14aefec90aa AS uv
+ARG BASE_IMAGE=node:26.12.0-bookworm-slim@sha256:298992629d69bbd5b2b03ad57094d8e4fcb3a8eeb7c4e25d29de656519568913
+FROM oven/bun:1.4.2-slim@sha256:cb3bbbb08e13a4a2ff400f24c7a2a1d5efa83f6ef8544d52d95a519631e2fc61 AS bun
+FROM ghcr.io/astral-sh/uv:0.12.24@sha256:3af4716e991d6956a41e573eab705d0ee08500cd829ed30293eb8472f372c65a AS uv
 FROM ${BASE_IMAGE}
 
 LABEL org.opencontainers.image.title="T3 Code Nightly"
@@ -13,6 +13,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 
 USER root
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
       bash ca-certificates curl dumb-init git git-lfs openssh-client \
       python3 python3-venv python3-pip build-essential cmake pkg-config \
@@ -31,9 +32,11 @@ RUN apt-get update \
 
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=uv /uv /uvx /usr/local/bin/
-ARG PNPM_VERSION=11.11.0
+ARG NPM_VERSION=12.2.0
+ARG PNPM_VERSION=11.28.6
 ARG YARN_VERSION=1.22.22
 RUN ln -s /usr/local/bin/bun /usr/local/bin/bunx \
+    && npm install -g --no-audit --no-fund "npm@${NPM_VERSION}" \
     && npm install -g --no-audit --no-fund "pnpm@${PNPM_VERSION}" "yarn@${YARN_VERSION}" \
     && npm cache clean --force
 
