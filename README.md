@@ -232,12 +232,21 @@ If the exact image tag does not exist, it:
    and verifies database/runtime recovery after a deliberately failed update.
 4. Replaces the previous base image and verifies that personal/work profiles,
    provider homes, environment identity, and an existing credential survive.
-5. Publishes the version-plus-commit and moving `nightly` tags with provenance and an
+5. Exercises Bun local-package installation, frozen lockfiles and tests, plus uv
+   locked environment creation and script-relative project discovery.
+6. Scans OS and bundled library dependencies with Trivy and reports high and
+   critical findings in the build log. Findings are informational; scanner errors
+   still fail the build. The `image-vulnerabilities` workflow artifact includes the
+   package inventory and findings at every severity, including those without a
+   published fix.
+7. Publishes the version-plus-commit and moving `nightly` tags with provenance and an
    SBOM.
 
 Dependabot checks the pinned base and tool images weekly. Merging an image update
 builds a new container with its OS and bundled tool updates. T3 and provider
 updates within an existing installation remain controlled through the app.
+The image scan covers the bundled seeds, not installations already persisted in
+`/data`; check and update those through T3's server and provider settings separately.
 
 For an Unraid container image refresh:
 

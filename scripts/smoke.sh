@@ -107,6 +107,7 @@ PY
 current_image="$image"
 start
 ready
+"$engine" exec -i "$container" bash < "$script_dir/check-tools.sh"
 # shellcheck disable=SC2016 # Read the marker inside the replacement container.
 "$engine" exec "$container" sh -c 'test "$(cat /data/workspace/smoke-marker)" = persistent'
 "$engine" exec "$container" sh -c '
