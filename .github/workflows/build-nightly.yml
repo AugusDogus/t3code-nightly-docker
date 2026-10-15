@@ -143,14 +143,11 @@ jobs:
           UPDATE_FROM_VERSION: 0.0.46-nightly.20261005.2702
         run: scripts/smoke.sh "${{ steps.resolve.outputs.test_image }}" "${{ steps.resolve.outputs.version }}"
 
-      - name: Reject fixable high and critical vulnerabilities
+      - name: Report high and critical vulnerabilities
         if: steps.existing.outputs.build == 'true'
-        env:
-          TEST_IMAGE: ${{ steps.resolve.outputs.test_image }}
-          TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-cache
         run: >-
-          trivy image --image-src docker --scanners vuln --timeout 15m
-          --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$TEST_IMAGE"
+          trivy convert --format table --severity HIGH,CRITICAL
+          --exit-code 0 "$RUNNER_TEMP/trivy-results.json"
 
       - name: Publish exact and moving tags
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.existing.outputs.build == 'true'

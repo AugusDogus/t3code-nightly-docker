@@ -234,10 +234,11 @@ If the exact image tag does not exist, it:
    provider homes, environment identity, and an existing credential survive.
 5. Exercises Bun local-package installation, frozen lockfiles and tests, plus uv
    locked environment creation and script-relative project discovery.
-6. Scans OS and bundled library dependencies with Trivy. Fixable high and critical
-   vulnerabilities block publication. The `image-vulnerabilities` workflow artifact
-   includes the package inventory and findings at every severity, including those
-   without a published fix.
+6. Scans OS and bundled library dependencies with Trivy and reports high and
+   critical findings in the build log. Findings are informational; scanner errors
+   still fail the build. The `image-vulnerabilities` workflow artifact includes the
+   package inventory and findings at every severity, including those without a
+   published fix.
 7. Publishes the version-plus-commit and moving `nightly` tags with provenance and an
    SBOM.
 
